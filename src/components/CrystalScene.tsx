@@ -285,7 +285,7 @@ export function EngravingPointCloud() {
         uBaseColor: { value: new THREE.Color(0x90c8ff) },
       },
       transparent:  true,
-      blending:     THREE.AdditiveBlending,
+      blending:     THREE.NormalBlending,
       depthWrite:   false,
       depthTest:    true,
       vertexColors: false,
