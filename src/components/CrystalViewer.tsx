@@ -65,14 +65,14 @@ function PostFX() {
 
   return (
     <EffectComposer multisampling={4}>
-      {/* Bloom forte sulle zone bianche/brillanti del punto cloud */}
+      {/* Bloom calibrato – soglia alta per non sovraesporre */}
       <Bloom
-        intensity={glow * 0.95}
-        luminanceThreshold={0.08}
-        luminanceSmoothing={0.55}
+        intensity={glow * 0.45}
+        luminanceThreshold={0.55}
+        luminanceSmoothing={0.4}
         mipmapBlur
-        radius={0.55}
-        levels={8}
+        radius={0.35}
+        levels={6}
       />
       {/* Aberrazione cromatica leggera (effetto prisma cristallo) */}
       <ChromaticAberration
