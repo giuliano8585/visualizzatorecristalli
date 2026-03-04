@@ -4,6 +4,7 @@ import {
   OrbitControls,
   Environment,
   ContactShadows,
+  Stars,
 } from '@react-three/drei'
 import {
   EffectComposer,
@@ -19,8 +20,6 @@ import {
   CrystalMesh,
   CrystalBackface,
   CrystalEdgeGlow,
-  CrystalPedestal,
-  StudioBackdrop,
   EngravingPointCloud,
   SceneLights,
 } from './CrystalScene'
@@ -30,28 +29,47 @@ function ScreenshotCapture({ onCapture }: { onCapture: (url: string) => void }) 
   const { gl } = useThree()
   useEffect(() => {
     const timer = setTimeout(() => {
+      gl.render(gl.info as any, null as any)  // force render
       const url = gl.domElement.toDataURL('image/png', 1.0)
       onCapture(url)
-    }, 500)
+    }, 400)
     return () => clearTimeout(timer)
   }, [gl, onCapture])
   return null
 }
 
+// ── Particelle ambiente (background stars) ─────────────────────────────────
+function AmbientParticles() {
+  return (
+    <Stars
+      radius={40}
+      depth={20}
+      count={600}
+      factor={1.2}
+      saturation={0.6}
+      fade
+      speed={0.3}
+    />
+  )
+}
+
 // ── Camera intro animation ────────────────────────────────────────────────────
 function CameraIntro() {
   const { camera } = useThree()
-  const t    = useRef(0)
+  const t = useRef(0)
   const done = useRef(false)
 
   useFrame((_, delta) => {
     if (done.current) return
-    t.current += delta * 0.55
+    t.current += delta * 0.6
     const progress = Math.min(t.current, 1)
-    const ease = 1 - Math.pow(1 - progress, 3)  // easeOutCubic
+    const ease = 1 - Math.pow(1 - progress, 3) // easeOutCubic
 
-    camera.position.z = 20 + (13 - 20) * ease
-    camera.position.y = 2.5 * (1 - ease) + 0.5
+    // da z=18 a z=12
+    const startZ = 18
+    const endZ = 12
+    camera.position.z = startZ + (endZ - startZ) * ease
+    camera.position.y = 1.5 * (1 - ease)
 
     if (progress >= 1) done.current = true
   })
@@ -59,35 +77,31 @@ function CameraIntro() {
   return null
 }
 
-// ── PostProcessing premium ────────────────────────────────────────────────────
+// ── PostProcessing ────────────────────────────────────────────────────────────
 function PostFX() {
   const glow = useStore((s) => s.params.glow)
 
   return (
     <EffectComposer multisampling={4}>
-      {/* Bloom minimo – solo per il leggero alone dei punti più luminosi */}
       <Bloom
-        intensity={glow * 0.25}
-        luminanceThreshold={0.75}
-        luminanceSmoothing={0.3}
+        intensity={glow * 0.85}
+        luminanceThreshold={0.12}
+        luminanceSmoothing={0.6}
         mipmapBlur
-        radius={0.25}
-        levels={5}
+        radius={0.5}
+        levels={8}
       />
-      {/* Aberrazione cromatica leggera (effetto prisma cristallo) */}
       <ChromaticAberration
         blendFunction={BlendFunction.NORMAL}
-        offset={new THREE.Vector2(0.0007, 0.0005) as any}
+        offset={new THREE.Vector2(0.0009, 0.0006) as any}
         radialModulation={false}
         modulationOffset={0}
       />
-      {/* Vignette elegante */}
       <Vignette
-        offset={0.28}
-        darkness={0.6}
+        offset={0.3}
+        darkness={0.65}
         blendFunction={BlendFunction.NORMAL}
       />
-      {/* Tone mapping cinematografico */}
       <ToneMapping
         blendFunction={BlendFunction.NORMAL}
         mode={ToneMappingMode.ACES_FILMIC}
@@ -96,10 +110,26 @@ function PostFX() {
   )
 }
 
+// ── Piastra riflettente sotto il cristallo ────────────────────────────────────
+function ReflectionPlane() {
+  return (
+    <mesh position={[0, -4.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[30, 30]} />
+      <meshStandardMaterial
+        color="#040810"
+        roughness={0.05}
+        metalness={0.3}
+        transparent
+        opacity={0.6}
+      />
+    </mesh>
+  )
+}
+
 // ── Viewer principale ─────────────────────────────────────────────────────────
 export default function CrystalViewer() {
   const setHQRendering = useStore((s) => s.setHQRendering)
-  const isHQ           = useStore((s) => s.isHQRendering)
+  const isHQ = useStore((s) => s.isHQRendering)
 
   const handleScreenshot = useCallback((url: string) => {
     const a = document.createElement('a')
@@ -112,36 +142,34 @@ export default function CrystalViewer() {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Canvas
-        camera={{ position: [0, 0.5, 20], fov: 32, near: 0.1, far: 200 }}
+        camera={{ position: [0, 1.5, 18], fov: 34, near: 0.1, far: 200 }}
         gl={{
-          antialias:            true,
-          alpha:                false,
-          powerPreference:      'high-performance',
+          antialias: true,
+          alpha: false,
+          powerPreference: 'high-performance',
           preserveDrawingBuffer: isHQ,
-          toneMapping:          THREE.ACESFilmicToneMapping,
-          toneMappingExposure:  1.12,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.08,
         }}
         dpr={[1, 1.5]}
         performance={{ min: 0.45 }}
         style={{
-          background: 'radial-gradient(ellipse 75% 55% at 50% 40%, #0c1628 0%, #060d1c 50%, #020509 100%)',
+          background: 'radial-gradient(ellipse 80% 60% at 50% 30%, #0a1525 0%, #050b18 45%, #020408 100%)',
         }}
       >
         <Suspense fallback={null}>
-          {/* Luci studiose */}
+          {/* Luci e ambiente */}
           <SceneLights />
-
-          {/* Ambiente HDRI studio (warehouse = neutro con riflessi morbidi) */}
           <Environment
-            preset="warehouse"
-            environmentIntensity={0.55}
+            preset="city"
+            environmentIntensity={0.7}
             backgroundBlurriness={1}
           />
 
-          {/* Fondale e pavimento studio */}
-          <StudioBackdrop />
+          {/* Stelle di sfondo */}
+          <AmbientParticles />
 
-          {/* Cristallo */}
+          {/* Cristallo con strati */}
           <CrystalBackface />
           <CrystalMesh />
           <CrystalEdgeGlow />
@@ -149,20 +177,20 @@ export default function CrystalViewer() {
           {/* Nuvola di punti incisa */}
           <EngravingPointCloud />
 
-          {/* Base/Piedistallo illuminato */}
-          <CrystalPedestal />
+          {/* Superficie riflettente */}
+          <ReflectionPlane />
 
-          {/* Ombra morbida */}
+          {/* Ombra morbida - baked, non usa shadow map */}
           <ContactShadows
-            position={[0, -4.5, 0]}
-            opacity={0.55}
-            scale={18}
-            blur={4}
-            far={10}
-            color="#040810"
+            position={[0, -4, 0]}
+            opacity={0.45}
+            scale={14}
+            blur={3.5}
+            far={8}
+            color="#080f22"
           />
 
-          {/* Post-processing premium */}
+          {/* Post-processing */}
           <PostFX />
 
           {/* Animazione camera intro */}
@@ -176,13 +204,13 @@ export default function CrystalViewer() {
           enableZoom
           enablePan={false}
           enableDamping
-          dampingFactor={0.05}
+          dampingFactor={0.055}
           minDistance={3.5}
-          maxDistance={28}
+          maxDistance={26}
           autoRotate
-          autoRotateSpeed={0.45}
-          minPolarAngle={Math.PI * 0.12}
-          maxPolarAngle={Math.PI * 0.82}
+          autoRotateSpeed={0.5}
+          minPolarAngle={Math.PI * 0.15}
+          maxPolarAngle={Math.PI * 0.85}
           touches={{
             ONE: THREE.TOUCH.ROTATE,
             TWO: THREE.TOUCH.DOLLY_ROTATE,

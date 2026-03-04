@@ -52,14 +52,14 @@ export interface EngravingParams {
 }
 
 export const DEFAULT_PARAMS: EngravingParams = {
-  density:    0.72,          // alta densità per la scultura a strati
-  depthRange: 2.0,           // cm – spessore realistico incisione laser
-  threshold:  0.10,          // soglia bassa – cattura tutta la silhouette
-  gamma:      1.35,
-  glow:       0.85,          // bloom moderato – non sovraesporre
-  pointSize:  1.2,           // punti più piccoli e densi
-  depthMode:  'GRAYSCALE_2_5D',
-  seed:       42,
+  density: 0.65,
+  depthRange: 1.6,
+  threshold: 0.12,
+  gamma: 1.4,
+  glow: 1.2,
+  pointSize: 1.4,
+  depthMode: 'GRAYSCALE_2_5D',
+  seed: 42,
 }
 
 // ── Stato applicazione ────────────────────────────────────────────────────────

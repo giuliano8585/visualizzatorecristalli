@@ -301,13 +301,14 @@ function AdvancedParams() {
   )
 }
 
-// ── Generatore demo – scultura a strati tipo Cockpit3D ────────────────────────
+// ── Generatore demo (senza immagine) ─────────────────────────────────────────
 function generateDemoCloud(
   dims: [number, number, number],
   padding: number,
   density: number,
   seed: number
 ): { positions: Float32Array; intensities: Float32Array } {
+  // Mulberry32 PRNG
   let s = seed >>> 0
   const rand = () => {
     s += 0x6D2B79F5
@@ -317,84 +318,30 @@ function generateDemoCloud(
   }
 
   const [cw, ch, cd] = dims
-  const iw = cw - padding * 2
-  const ih = ch - padding * 2
-  const id_ = cd - padding * 2
+  const hw = (cw - padding * 2) / 2
+  const hh = (ch - padding * 2) / 2
+  const hd = (cd - padding * 2) / 2
+  const count = Math.floor(15000 * density)
+  const positions = new Float32Array(count * 3)
+  const intensities = new Float32Array(count)
 
-  // Genera una "depth map" sintetica 64×64 che forma un volto stilizzato
-  const RES = 64
-  const depthGrid = new Float32Array(RES * RES)
-  for (let gy = 0; gy < RES; gy++) {
-    for (let gx = 0; gx < RES; gx++) {
-      const u = gx / (RES - 1) - 0.5   // -0.5..+0.5
-      const v = gy / (RES - 1) - 0.5
+  for (let i = 0; i < count; i++) {
+    // Forma a cuore 3D (demo)
+    const theta = rand() * Math.PI * 2
+    const phi = rand() * Math.PI
+    const r = Math.cbrt(rand())
+    // Sphere con variazione
+    const nx = r * Math.sin(phi) * Math.cos(theta)
+    const ny = r * Math.sin(phi) * Math.sin(theta) * 0.7
+    const nz = r * Math.cos(phi) * 0.5
 
-      // Forma ovale del viso
-      const faceOval = 1.0 - Math.min(1, Math.sqrt((u / 0.38) ** 2 + (v / 0.48) ** 2))
-      if (faceOval <= 0) { depthGrid[gy * RES + gx] = 0; continue }
-
-      // Profondità: zona centrale più in avanti (convessa)
-      const dist = Math.sqrt(u * u + v * v)
-      const depthBase = Math.cos(dist * Math.PI * 0.85) * 0.5 + 0.5
-
-      // Dettagli viso stilizzati
-      const eyeL  = Math.exp(-((u + 0.13) ** 2 + (v + 0.07) ** 2) / 0.003)
-      const eyeR  = Math.exp(-((u - 0.13) ** 2 + (v + 0.07) ** 2) / 0.003)
-      const nose  = Math.exp(-((u) ** 2 * 20 + (v - 0.08) ** 2 * 60)) * 0.6
-      const mouth = Math.exp(-((u) ** 2 * 12 + (v - 0.22) ** 2 * 80)) * 0.5
-
-      // Occhi = zone più basse (scavate)
-      const eyeDip = (eyeL + eyeR) * 0.4
-
-      const finalDepth = faceOval * (depthBase + nose + mouth - eyeDip + 0.05)
-      depthGrid[gy * RES + gx] = Math.max(0, Math.min(1, finalDepth))
-    }
+    positions[i * 3]     = nx * hw * 0.75
+    positions[i * 3 + 1] = ny * hh * 0.75
+    positions[i * 3 + 2] = nz * hd * 0.75
+    intensities[i] = 0.3 + rand() * 0.7
   }
 
-  // Genera punti con Layered Sheet Sampling dalla depth grid
-  const positions: number[] = []
-  const intensities: number[] = []
-  const maxPts = Math.floor(40000 * density)
-  const maxDepth = id_ * 0.75
-  const N_LAYERS = 20
-  const ptsPerCell = Math.max(1, Math.round(density * 3))
-
-  for (let gy = 0; gy < RES && positions.length / 3 < maxPts; gy++) {
-    for (let gx = 0; gx < RES && positions.length / 3 < maxPts; gx++) {
-      const d = depthGrid[gy * RES + gx]
-      if (d < 0.08) continue
-
-      const u = gx / (RES - 1) - 0.5
-      const v = gy / (RES - 1) - 0.5
-
-      const zCenter = (d - 0.5) * maxDepth
-      const sliceHalf = maxDepth * 0.10 * (1.2 - d * 0.5)
-      const nLayers = Math.max(1, Math.round((sliceHalf * 2 / maxDepth) * N_LAYERS))
-
-      for (let li = 0; li < nLayers && positions.length / 3 < maxPts; li++) {
-        const t = nLayers > 1 ? li / (nLayers - 1) : 0.5
-        const layerZ = zCenter - sliceHalf + t * sliceHalf * 2
-
-        for (let pi = 0; pi < ptsPerCell && positions.length / 3 < maxPts; pi++) {
-          const jx = (rand() - 0.5) * (1.4 / RES)
-          const jy = (rand() - 0.5) * (1.4 / RES)
-          const jz = (rand() - 0.5) * (maxDepth / N_LAYERS) * 0.5
-
-          positions.push(
-            (u + jx) * iw,
-            -(v + jy) * ih,
-            layerZ + jz
-          )
-          intensities.push(Math.min(1, d * 0.85 + 0.15))
-        }
-      }
-    }
-  }
-
-  return {
-    positions: new Float32Array(positions),
-    intensities: new Float32Array(intensities),
-  }
+  return { positions, intensities }
 }
 
 // ── Barra azioni ──────────────────────────────────────────────────────────────

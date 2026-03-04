@@ -1,84 +1,71 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Vertex shader – punti incisi nel cristallo
-// Obiettivo: ogni punto = piccolo dot laser bianco/azzurro, leggibile
-// NON usare AdditiveBlending con punti grandi → blob bianco
-// ─────────────────────────────────────────────────────────────────────────────
+// Vertex shader per i punti incisi nel cristallo
 export const pointsVertexShader = /* glsl */`
   attribute float intensity;
   attribute float randomOffset;
 
   varying float vIntensity;
-  varying float vDepthNorm;
-  varying float vRandom;
+  varying float vDepth;
 
   uniform float uPointSize;
   uniform float uTime;
+  uniform float uGlow;
 
   void main() {
-    vIntensity  = intensity;
-    vRandom     = randomOffset;
-
-    // Profondità normalizzata: z positivo = frontale, negativo = fondo
-    // Usiamo il range effettivo del cristallo (max ~2.5 cm → scena units)
-    vDepthNorm = clamp(position.z / 1.5 * 0.5 + 0.5, 0.0, 1.0);
+    vIntensity = intensity;
 
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vDepth = -mvPosition.z;
+
+    // Dimensione punto: scala con intensità + distanza camera
     float dist = length(mvPosition.xyz);
+    float sizeByDist = uPointSize * 60.0 / dist;
 
-    // Dimensione base: piccola, mai più di 5px (punti leggibili come incisione)
-    float baseSize = uPointSize * 30.0 / dist;
+    // Pulse sottile per effetto "vivo"
+    float pulse = 1.0 + 0.04 * sin(uTime * 1.2 + randomOffset * 6.28);
 
-    // Scala con intensità ma in modo conservativo
-    float sizeScale = 0.5 + intensity * 0.7;
-
-    gl_PointSize = clamp(baseSize * sizeScale, 1.0, 5.0);
-    gl_Position  = projectionMatrix * mvPosition;
+    gl_PointSize = clamp(sizeByDist * intensity * pulse * (0.5 + intensity * 0.5), 1.0, 12.0);
+    gl_Position = projectionMatrix * mvPosition;
   }
 `
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Fragment shader – dot laser preciso
-// ─────────────────────────────────────────────────────────────────────────────
+// Fragment shader per i punti incisi
 export const pointsFragmentShader = /* glsl */`
   varying float vIntensity;
-  varying float vDepthNorm;
-  varying float vRandom;
+  varying float vDepth;
 
   uniform float uGlow;
+  uniform vec3 uBaseColor;
   uniform float uTime;
 
   void main() {
+    // Forma circolare morbida (sprite)
     vec2 uv = gl_PointCoord - 0.5;
     float d = length(uv);
-
-    // Scarta angoli (forma circolare)
     if (d > 0.5) discard;
 
-    // Falloff gaussiano – punto piccolo e definito
-    float alpha = exp(-d * d * 18.0);
-    alpha *= vIntensity;
-    alpha = clamp(alpha, 0.0, 1.0);
+    // Falloff gaussiano
+    float alpha = exp(-d * d * 8.0) * vIntensity;
 
-    // Colore:
-    // zona frontale (depthNorm alto) → bianco-azzurro ghiaccio
-    // zona posteriore (depthNorm basso) → bianco-caldo leggermente giallino
-    vec3 frontColor = vec3(0.75, 0.90, 1.00);  // azzurro chiaro
-    vec3 midColor   = vec3(0.95, 0.97, 1.00);  // bianco quasi puro
-    vec3 backColor  = vec3(1.00, 0.97, 0.90);  // bianco caldo
+    // Colore: blu-bianco ghiaccio con variazione basata su intensità
+    float t = vIntensity;
+    vec3 coreColor = mix(
+      vec3(0.4, 0.65, 1.0),   // blu chiaro (dettagli)
+      vec3(0.92, 0.97, 1.0),  // quasi bianco (zone luminose)
+      t * t
+    );
 
-    vec3 baseColor = mix(backColor, mix(midColor, frontColor, vDepthNorm), vDepthNorm);
+    // Halo esterno leggermente più caldo
+    vec3 haloColor = vec3(0.3, 0.55, 0.95);
+    vec3 finalColor = mix(haloColor, coreColor, 1.0 - d * 2.0);
 
-    // Punti molto intensi → core bianco puro
-    vec3 finalColor = mix(baseColor, vec3(1.0), vIntensity * vIntensity * 0.5);
+    // Boost glow sulle zone più intense
+    finalColor += vec3(0.05, 0.10, 0.25) * uGlow * t * t;
 
-    // Glow: lieve alone colorato solo sui punti più luminosi
-    float glowAlpha = alpha * uGlow * 0.3 * vIntensity;
-
-    gl_FragColor = vec4(finalColor, alpha * 0.88 + glowAlpha);
+    gl_FragColor = vec4(finalColor, alpha * uGlow * 0.85);
   }
 `
 
-// Vertex shader cristallo (pass-through)
+// Vertex shader cristallo (pass-through, il materiale fisico gestisce il resto)
 export const crystalVertexShader = /* glsl */`
   varying vec3 vWorldPosition;
   varying vec3 vNormal;
