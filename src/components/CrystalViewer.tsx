@@ -151,7 +151,6 @@ export default function CrystalViewer() {
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.08,
         }}
-        shadows="soft"
         dpr={[1, 1.5]}
         performance={{ min: 0.45 }}
         style={{
@@ -181,14 +180,14 @@ export default function CrystalViewer() {
           {/* Superficie riflettente */}
           <ReflectionPlane />
 
-          {/* Ombra morbida */}
+          {/* Ombra morbida - baked, non usa shadow map */}
           <ContactShadows
             position={[0, -4, 0]}
-            opacity={0.4}
+            opacity={0.45}
             scale={14}
-            blur={3}
+            blur={3.5}
             far={8}
-            color="#0a1830"
+            color="#080f22"
           />
 
           {/* Post-processing */}

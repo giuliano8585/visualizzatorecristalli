@@ -51,8 +51,6 @@ export function CrystalMesh() {
       args={[cw, ch, cd]}
       radius={0.07}
       smoothness={6}
-      castShadow
-      receiveShadow
     >
       <primitive object={material} attach="material" />
     </RoundedBox>
@@ -222,7 +220,6 @@ export function SceneLights() {
         position={[3, 5, 3]}
         intensity={1.8}
         color="#ffffff"
-        castShadow
       />
 
       {/* Fill light (right, leggermente caldo) */}
