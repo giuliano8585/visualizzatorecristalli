@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useState } from 'react'
 import ConfiguratorPanel from './components/ConfiguratorPanel'
 import { useStore, CRYSTAL_PRESETS } from './store/useStore'
 import './styles.css'
@@ -35,7 +35,7 @@ function ViewerSection() {
         </div>
       )}
 
-      {/* Info badge */}
+      {/* Info badge bottom-right */}
       {pointCount > 0 && (
         <div className="viewer-overlay">
           <div className="viewer-badge">
@@ -50,7 +50,7 @@ function ViewerSection() {
       {/* Hint controlli orbit */}
       {pointCount > 0 && (
         <div className="controls-hint">
-          🖱 Trascina per ruotare • Scroll per zoom • Pinch su mobile
+          🖱 Trascina per ruotare · Scroll per zoom · Pinch su mobile
         </div>
       )}
 
@@ -67,15 +67,38 @@ function ViewerSection() {
   )
 }
 
+// ── Mobile panel toggle ────────────────────────────────────────────────────────
+function MobilePanelToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      className="mobile-panel-toggle"
+      onClick={onToggle}
+      aria-label={open ? 'Nascondi pannello' : 'Mostra pannello configuratore'}
+    >
+      {open ? '▼ Nascondi' : '▲ Configura'}
+    </button>
+  )
+}
+
 // ── App root ─────────────────────────────────────────────────────────────────
 export default function App() {
+  const [mobileOpen, setMobileOpen] = useState(true)
+
   return (
     <div className="app-root">
-      {/* Pannello configuratore sinistro */}
-      <ConfiguratorPanel />
-
-      {/* Viewer 3D (tutto il resto) */}
+      {/* Viewer 3D sempre in background */}
       <ViewerSection />
+
+      {/* Pannello configuratore */}
+      <div className={`configurator-wrapper ${mobileOpen ? 'panel-open' : 'panel-closed'}`}>
+        <ConfiguratorPanel />
+      </div>
+
+      {/* Toggle mobile */}
+      <MobilePanelToggle
+        open={mobileOpen}
+        onToggle={() => setMobileOpen((v) => !v)}
+      />
     </div>
   )
 }

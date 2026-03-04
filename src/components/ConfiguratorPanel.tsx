@@ -301,6 +301,49 @@ function AdvancedParams() {
   )
 }
 
+// ── Generatore demo (senza immagine) ─────────────────────────────────────────
+function generateDemoCloud(
+  dims: [number, number, number],
+  padding: number,
+  density: number,
+  seed: number
+): { positions: Float32Array; intensities: Float32Array } {
+  // Mulberry32 PRNG
+  let s = seed >>> 0
+  const rand = () => {
+    s += 0x6D2B79F5
+    let t = Math.imul(s ^ (s >>> 15), 1 | s)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    return ((t ^ (t >>> 14)) >>> 0) / 0xFFFFFFFF
+  }
+
+  const [cw, ch, cd] = dims
+  const hw = (cw - padding * 2) / 2
+  const hh = (ch - padding * 2) / 2
+  const hd = (cd - padding * 2) / 2
+  const count = Math.floor(15000 * density)
+  const positions = new Float32Array(count * 3)
+  const intensities = new Float32Array(count)
+
+  for (let i = 0; i < count; i++) {
+    // Forma a cuore 3D (demo)
+    const theta = rand() * Math.PI * 2
+    const phi = rand() * Math.PI
+    const r = Math.cbrt(rand())
+    // Sphere con variazione
+    const nx = r * Math.sin(phi) * Math.cos(theta)
+    const ny = r * Math.sin(phi) * Math.sin(theta) * 0.7
+    const nz = r * Math.cos(phi) * 0.5
+
+    positions[i * 3]     = nx * hw * 0.75
+    positions[i * 3 + 1] = ny * hh * 0.75
+    positions[i * 3 + 2] = nz * hd * 0.75
+    intensities[i] = 0.3 + rand() * 0.7
+  }
+
+  return { positions, intensities }
+}
+
 // ── Barra azioni ──────────────────────────────────────────────────────────────
 function ActionBar() {
   const isProcessing = useStore((s) => s.isProcessing)
@@ -318,17 +361,29 @@ function ActionBar() {
   const workerRef = useRef<Worker | null>(null)
 
   const handleGenerate = useCallback(() => {
-    if (!sourceImageData) return
-
     // Termina worker precedente
     if (workerRef.current) {
       workerRef.current.terminate()
+      workerRef.current = null
     }
 
+    const preset = CRYSTAL_PRESETS[crystalType]
     setProcessing(true, 0)
     setActiveView('viewer')
 
-    const preset = CRYSTAL_PRESETS[crystalType]
+    // Se non c'è immagine → demo cloud
+    if (!sourceImageData) {
+      setTimeout(() => {
+        setProcessing(true, 0.4)
+        const { positions, intensities } = generateDemoCloud(
+          preset.dims, preset.padding, params.density, params.seed
+        )
+        setProcessing(true, 0.9)
+        setTimeout(() => setPointCloud(positions, intensities), 100)
+      }, 80)
+      return
+    }
+
     const worker = new Worker(
       new URL('../workers/imageProcessor.worker.ts', import.meta.url),
       { type: 'module' }
@@ -387,23 +442,21 @@ function ActionBar() {
         <>
           {pointCount > 0 && (
             <div className="point-count">
-              ✦ {pointCount.toLocaleString('it')} punti
+              ✦ {pointCount.toLocaleString('it')} punti incisi
             </div>
           )}
           <button
             className="btn-primary"
             onClick={handleGenerate}
-            disabled={!sourceImageData}
           >
-            {pointCount > 0 ? '⟳ Rigenera' : '✦ Genera Cristallo'}
+            {pointCount > 0 ? '⟳ Rigenera Incisione' : sourceImageData ? '✦ Genera Cristallo' : '✦ Demo Cristallo'}
           </button>
           {pointCount > 0 && activeView === 'viewer' && (
             <button
               className="btn-hq"
               onClick={() => setHQRendering(true)}
-              title="Salva screenshot HQ"
             >
-              📷 Screenshot HQ
+              📷 Salva Screenshot HQ
             </button>
           )}
         </>
